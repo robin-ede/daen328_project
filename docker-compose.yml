@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  db:
+  image: postgres:15
+  container_name: postgres-db
+  restart: always
+  env_file: .env
+  ports:
+    - "${POSTGRES_PORT}:5432"
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+    - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  etl:
+    build: ./etl
+    container_name: etl-runner
+    depends_on:
+      - db
+    env_file: .env
+
+  dashboard:
+    build: ./dashboard
+    container_name: streamlit-dashboard
+    depends_on:
+      - db
+    ports:
+      - "8501:8501"
+    env_file: .env
+
+volumes:
+  postgres_data:
