@@ -1,6 +1,7 @@
 -- Create the restaurants table
 CREATE TABLE IF NOT EXISTS restaurants (
-    license_ BIGINT PRIMARY KEY,
+    restaurant_id TEXT PRIMARY KEY,
+    license_ TEXT,
     dba_name TEXT,
     aka_name TEXT,
     facility_type TEXT,
@@ -16,7 +17,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
 -- Create the inspections table
 CREATE TABLE IF NOT EXISTS inspections (
     inspection_id BIGINT PRIMARY KEY,
-    license_ BIGINT REFERENCES restaurants(license_),
+    restaurant_id TEXT REFERENCES restaurants(restaurant_id),
     inspection_date DATE,
     inspection_type TEXT,
     results TEXT

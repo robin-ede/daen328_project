@@ -16,6 +16,8 @@ services:
     depends_on:
       - db
     env_file: .env
+    volumes:
+      - ./etl:/app
 
   dashboard:
     build: ./dashboard

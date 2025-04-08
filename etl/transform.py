@@ -3,6 +3,14 @@ import re
 import pgeocode
 from geopy.geocoders import Nominatim
 import time
+import hashlib
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] [%(filename)s] %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 def drop_unnecessary_columns(df):
   return df.drop(columns=[col for col in df.columns if col=='location' or col.startswith(":@computed_region")])
@@ -10,6 +18,10 @@ def drop_unnecessary_columns(df):
 def parse_dates(df):
   df["inspection_date"] = pd.to_datetime(df["inspection_date"])
   return df
+
+def generate_restaurant_id(row):
+    string = f"{row['dba_name']}_{row['address']}_{row['zip']}"
+    return hashlib.md5(string.encode()).hexdigest()
 
 # Initialize the nominatim lookup for US
 nomi = pgeocode.Nominatim('us')
@@ -40,7 +52,7 @@ def fill_from_latlon(row):
                 if pd.isnull(row['zip']):
                     row['zip'] = address.get('postcode')
         except Exception as e:
-            print(f"Geocoding error: {e}")
+            logger.info(f"Geocoding error: {e}")
         time.sleep(1)  # To avoid rate limits
     return row
 
@@ -70,28 +82,32 @@ def extract_violations(df):
     return pd.DataFrame(all_rows)
 
 def clean_data(df):
-    print("Cleaning data...")
-    print("Dropping unnecessary columns...")
+    logger.info("Cleaning data...")
+    logger.info("Dropping unnecessary columns...")
     df = drop_unnecessary_columns(df)
-    print("Parsing dates...")
+    logger.info("Parsing dates...")
     df = parse_dates(df)
-    print("Filling missing city/state/zip from ZIP code...")
+    logger.info("Generating restaurant IDs...")
+    df['restaurant_id'] = df.apply(generate_restaurant_id, axis=1)
+    logger.info("Filling missing city/state/zip from ZIP code...")
     df = df.apply(fill_from_zip, axis=1)
-    print("Filling missing city/state/zip from latitude/longitude...")
+    logger.info("Filling missing city/state/zip from latitude/longitude...")
     df = df.apply(fill_from_latlon, axis=1)
+    
+    # logger.info(df[df[['city', 'state', 'zip']].isnull().any(axis=1)])
 
-    print("Extracting inspections...")
+    logger.info("Extracting inspections...")
     inspections_df = df[[
-        'inspection_id', 'license_', 'inspection_date', 'inspection_type', 'results',
+        'inspection_id', 'restaurant_id', 'inspection_date', 'inspection_type', 'results',
     ]].drop_duplicates(subset=['inspection_id'])
     
-    print("Extracting restaurants...")
+    logger.info("Extracting restaurants...")
     restaurants_df = df[[
-        'license_', 'dba_name', 'aka_name', 'facility_type', 'risk',
+        'restaurant_id', 'license_', 'dba_name', 'aka_name', 'facility_type', 'risk',
         'address', 'city', 'state', 'zip', 'latitude', 'longitude'
-    ]].drop_duplicates(subset=['license_'])
+    ]].drop_duplicates(subset=['restaurant_id'])
     
-    print("Extracting violations...")
+    logger.info("Extracting violations...")
     violations_df = extract_violations(df)
 
     return inspections_df, restaurants_df, violations_df
