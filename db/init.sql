@@ -20,6 +20,13 @@ CREATE TABLE IF NOT EXISTS inspections (
     inspection_date DATE,
     inspection_type TEXT,
     results TEXT,
-    violations TEXT,
-    location JSONB
+);
+
+-- Create the violations table
+CREATE TABLE IF NOT EXISTS violations (
+    id SERIAL PRIMARY KEY,
+    inspection_id BIGINT REFERENCES inspections(inspection_id) ON DELETE CASCADE,
+    violation_number INT,
+    violation_description TEXT,
+    violation_comments TEXT
 );

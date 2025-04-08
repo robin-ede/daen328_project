@@ -1,8 +1,9 @@
 import os
+from dotenv import load_dotenv
 import psycopg2
 import json
 
-def load_into_postgres(inspections, restaurants):
+def load_into_postgres(inspections, restaurants, violations):
     print("Loading data into PostgreSQL...")
     conn = psycopg2.connect(
         host=os.getenv("POSTGRES_HOST"),
@@ -13,6 +14,7 @@ def load_into_postgres(inspections, restaurants):
     )
 
     with conn.cursor() as cur:
+        # Insert into restaurants
         for _, row in restaurants.iterrows():
             cur.execute("""
                 INSERT INTO restaurants (license_, dba_name, aka_name, facility_type, risk,
@@ -25,16 +27,29 @@ def load_into_postgres(inspections, restaurants):
                 row['latitude'], row['longitude']
             ))
 
+        # Insert into inspections
         for _, row in inspections.iterrows():
             cur.execute("""
                 INSERT INTO inspections (inspection_id, license_, inspection_date,
-                    inspection_type, results, violations, location)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    inspection_type, results, location)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (inspection_id) DO NOTHING;
             """, (
                 row['inspection_id'], row['license_'], row['inspection_date'],
-                row['inspection_type'], row['results'], row['violations'],
+                row['inspection_type'], row['results'],
                 json.dumps(row['location']) if isinstance(row['location'], dict) else None
+            ))
+
+        # Insert into violations
+        for _, row in violations.iterrows():
+            cur.execute("""
+                INSERT INTO violations (inspection_id, violation_number, violation_description, violation_comments)
+                VALUES (%s, %s, %s, %s);
+            """, (
+                row['inspection_id'],
+                row['violation_number'],
+                row['violation_description'],
+                row['violation_comments']
             ))
 
     conn.commit()
