@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS inspections (
     license_ BIGINT REFERENCES restaurants(license_),
     inspection_date DATE,
     inspection_type TEXT,
-    results TEXT,
+    results TEXT
 );
 
 -- Create the violations table
