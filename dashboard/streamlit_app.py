@@ -3,17 +3,30 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 import plotly.express as px
+from dotenv import load_dotenv
 
-# Database connection
+
+def running_in_docker():
+    return os.path.exists('/.dockerenv')
+
 @st.cache_resource
 def get_connection():
-    return psycopg2.connect(
-        host=os.getenv("POSTGRES_HOST"),
-        port=os.getenv("POSTGRES_PORT"),
-        dbname=os.getenv("POSTGRES_DB"),
-        user=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD")
-    )
+    if running_in_docker():
+        return psycopg2.connect(
+            host=os.getenv("POSTGRES_HOST"),
+            port=os.getenv("POSTGRES_PORT"),
+            dbname=os.getenv("POSTGRES_DB"),
+            user=os.getenv("POSTGRES_USER"),
+            password=os.getenv("POSTGRES_PASSWORD")
+        )
+    else:
+        return psycopg2.connect(
+            host="localhost",
+            port=5433,
+            dbname=os.getenv("POSTGRES_DB"),
+            user=os.getenv("POSTGRES_USER"),
+            password=os.getenv("POSTGRES_PASSWORD")
+        )
 
 conn = get_connection()
 
