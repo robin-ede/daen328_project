@@ -27,6 +27,8 @@ services:
     ports:
       - "8501:8501"
     env_file: .env
+    volumes:
+      - ./dashboard:/app
 
 volumes:
   postgres_data:
