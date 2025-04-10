@@ -5,6 +5,7 @@ from geopy.geocoders import Nominatim
 import time
 import hashlib
 import logging
+from rapidfuzz import process
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,8 +20,41 @@ def parse_dates(df):
   df["inspection_date"] = pd.to_datetime(df["inspection_date"])
   return df
 
+def preprocess_city(city):
+  if not isinstance(city, str):
+        return city
+  city = re.sub(r'[^A-Z\s]', '', city)  # Remove non-letters
+  city = re.sub(r'\s+', ' ', city)      # Normalize whitespace
+  return city.strip()
+
+trusted_cities = [
+    'CHICAGO', 'EVANSTON', 'SCHAUMBURG', 'MAYWOOD', 'ELK GROVE VILLAGE',
+    'SKOKIE', 'OAK PARK', 'CICERO', 'BERWYN', 'ELMHURST', 'NILES',
+    'MERRILLVILLE', 'CALUMET CITY', 'WORTH', 'SUMMIT', 'PLAINFIELD',
+    'HIGHLAND PARK', 'NAPERVILLE', 'ALSIP', 'BRIDGEVIEW', 'ROSEMONT',
+    'SCHILLER PARK', 'EAST HAZEL CREST', 'STREAMWOOD', 'BLUE ISLAND',
+    'CHICAGO HEIGHTS', 'OAK LAWN', 'BURNHAM', 'LAKE ZURICH', 'BURBANK',
+    'EVERGREEN PARK', 'MATTESON', 'BROOKFIELD', 'GRAYSLAKE', 'HAMMOND',
+    'WHEATON', 'WILMETTE', 'WADSWORTH', 'LANSING', 'NEW HOLSTEIN',
+    'ALGONQUIN', 'GRIFFITH', 'MORTON GROVE', 'WESTERN SPRINGS',
+    'TORRANCE', 'WHITING', 'GLEN ELLYN', 'LOS ANGELES', 'WESTMONT',
+    'OLYMPIA FIELDS', 'NORRIDGE', 'BLOOMINGDALE', 'PALOS PARK',
+    'LAKE BLUFF', 'LOMBARD', 'JUSTICE', 'BOLINGBROOK',
+    'COUNTRY CLUB HILLS', 'TINLEY PARK', 'DES PLAINES', 'GLENCOE',
+    'FRANKFORT', 'BROADVIEW'
+]
+
+def fuzzy_correct(city, choices, threshold=85):
+    if not city or not isinstance(city, str):
+        return city
+    result = process.extractOne(city, choices)
+    if result is None:
+        return city
+    match, score, _ = result
+    return match if score >= threshold else city
+
 def generate_restaurant_id(row):
-    string = f"{row['dba_name']}_{row['address']}_{row['zip']}"
+    string = f"{row['license_']}_{row['address']}_{row['zip']}_{row['city']}"
     return hashlib.md5(string.encode()).hexdigest()
 
 # Initialize the nominatim lookup for US
@@ -87,14 +121,21 @@ def clean_data(df):
     df = drop_unnecessary_columns(df)
     logger.info("Parsing dates...")
     df = parse_dates(df)
-    logger.info("Generating restaurant IDs...")
-    df['restaurant_id'] = df.apply(generate_restaurant_id, axis=1)
     logger.info("Filling missing city/state/zip from ZIP code...")
     df = df.apply(fill_from_zip, axis=1)
     logger.info("Filling missing city/state/zip from latitude/longitude...")
     df = df.apply(fill_from_latlon, axis=1)
+    logger.info("Processing city names...")
+    df['city'] = df['city'].apply(preprocess_city)
+    df['city'] = df['city'].apply(lambda x: fuzzy_correct(x, trusted_cities))
+    
+    for city, count in df['city'].value_counts().items():
+        logger.info(f"City: {city}, Count: {count}")
     
     # logger.info(df[df[['city', 'state', 'zip']].isnull().any(axis=1)])
+    
+    logger.info("Generating restaurant IDs...")
+    df['restaurant_id'] = df.apply(generate_restaurant_id, axis=1)
 
     logger.info("Extracting inspections...")
     inspections_df = df[[
