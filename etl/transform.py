@@ -129,8 +129,8 @@ def clean_data(df):
     df['city'] = df['city'].apply(preprocess_city)
     df['city'] = df['city'].apply(lambda x: fuzzy_correct(x, trusted_cities))
     
-    for city, count in df['city'].value_counts().items():
-        logger.info(f"City: {city}, Count: {count}")
+    # for city, count in df['city'].value_counts().items():
+    #     logger.info(f"City: {city}, Count: {count}")
     
     # logger.info(df[df[['city', 'state', 'zip']].isnull().any(axis=1)])
     
