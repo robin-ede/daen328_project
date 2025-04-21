@@ -173,23 +173,84 @@ else:
         risk_counts.columns = ["risk", "count"]
         fig3 = px.pie(risk_counts, names="risk", values="count", title="Risk Distribution")
         st.plotly_chart(fig3)
+        
+    # --- Inspection Frequency ---
+    def inspection_frequency_page():
+        st.title("📅 Inspection Timeline Viewer")
+
+        inspections = st.session_state.inspections
+        restaurants = st.session_state.restaurants
+
+        # Ensure inspection_date is datetime
+        inspections['inspection_date'] = pd.to_datetime(inspections['inspection_date'])
+
+        # Restaurant selection dropdown
+        restaurant_dict = restaurants.set_index("restaurant_id")["dba_name"].to_dict()
+        selected_id = st.selectbox(
+            "Choose a restaurant to view inspection history:",
+            options=restaurant_dict.keys(),
+            format_func=lambda x: restaurant_dict[x]
+        )
+
+        # Filter and sort inspections for selected restaurant
+        selected_df = inspections[inspections["restaurant_id"] == selected_id].sort_values("inspection_date")
+
+        # Timeline scatter plot
+        fig = px.scatter(
+            selected_df,
+            x="inspection_date",
+            y="inspection_id",
+            title=f"Inspection Timeline for {restaurant_dict[selected_id]}",
+            labels={"inspection_id": "Inspection Event", "inspection_date": "Date"},
+            hover_data=["inspection_type", "results"]
+        )
+
+        st.plotly_chart(fig)
 
     def test_page():
         st.write("This is a test")
 
-    # Define pages
-    pages = {
-        'Main Page': [
-            st.Page(main_page, title="Main Page"),
-        ],
-        'Visualizations': [
-            st.Page(inspection_count_page, title='Inspection Count by Result'),
-            st.Page(violations_overTime_page, title='Violations Over Time'),
-            st.Page(map_page, title='Map of All Restaurants'),
-            st.Page(choropleth_page, title='Choropleth'),
-            st.Page(risk_page, title='Restaurant Risk Levels')
-            ]
-    }
+    # # Define pages
+    # pages = {
+    #     'Main Page': [
+    #         st.Page(main_page, title="Main Page"),
+    #     ],
+    #     'Visualizations': [
+    #         st.Page(inspection_count_page, title='Inspection Count by Result'),
+    #         st.Page(violations_overTime_page, title='Violations Over Time'),
+    #         st.Page(map_page, title='Map of All Restaurants'),
+    #         st.Page(choropleth_page, title='Choropleth'),
+    #         st.Page(risk_page, title='Restaurant Risk Levels')
+    #         ]
+    # }
 
-    pg = st.navigation(pages)
-    pg.run()
+    # pg = st.navigation(pages)
+    # pg.run()
+    
+    # Sidebar navigation
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Go to", [
+        "Main Page",
+        "Inspection Count by Result",
+        "Violations Over Time",
+        "Map of All Restaurants",
+        "Choropleth",
+        "Restaurant Risk Levels",
+        "Inspection Frequency"
+    ])
+    
+    if page == "Main Page":
+        main_page()
+    elif page == "Inspection Count by Result":
+        inspection_count_page()
+    elif page == "Violations Over Time":
+        violations_overTime_page()
+    elif page == "Map of All Restaurants":
+        map_page()
+    elif page == "Choropleth":
+        choropleth_page()
+    elif page == "Restaurant Risk Levels":
+        risk_page()
+    elif page == "Inspection Frequency":
+        inspection_frequency_page()
+
